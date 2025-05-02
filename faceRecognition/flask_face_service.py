@@ -11,18 +11,28 @@ app = Flask(__name__)
 KNOWN_FACES_DIR = "known_faces"
 
 def load_known_faces(user_id):
-    path = KNOWN_FACES_DIR + f"/{user_id}"
+    if user_id:
+        path = KNOWN_FACES_DIR + f"/{user_id}"
+    else:
+        path = KNOWN_FACES_DIR + f"/admin"
     known_faces = {}
     if not os.path.exists(path):
         os.makedirs(path)
     for filename in os.listdir(path):
         if filename.endswith(".jpg") or filename.endswith(".png"):
             name = os.path.splitext(filename)[0]
-            if name == user_id:
+            if user_id:
+                if name == user_id:
+                    image_path = os.path.join(path, filename)
+                    image = face_recognition.load_image_file(image_path)
+                    encoding = face_recognition.face_encodings(image)[0]
+                    known_faces[user_id] = encoding
+            else:
                 image_path = os.path.join(path, filename)
                 image = face_recognition.load_image_file(image_path)
-                encoding = face_recognition.face_encodings(image)[0]
-                known_faces[user_id] = encoding
+                encodings = face_recognition.face_encodings(image)
+                if encodings:
+                    known_faces[name] = encodings[0]
     return known_faces
 
 def verify_face(image_base64, known_faces):
@@ -42,7 +52,7 @@ def verify_face(image_base64, known_faces):
     for user_id, known_encoding in known_faces.items():
         match = face_recognition.compare_faces([known_encoding], face_encoding, tolerance=0.5)
         if match[0]:
-            return {"status": "0", "message": f"Verification successful: The user is {user_id}"}
+            return {"status": "0", "message": f"Verification successful: The user is {user_id}", "userid": user_id}
 
     return {"status": "1", "message": "Verification failed: The user is not recognized"}
 
